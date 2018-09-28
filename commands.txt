@@ -1,0 +1,229 @@
+---------------------------- MAVEN ----------------------------
+Sample all the way down in this file.
+
+mvn clean package -Dhttps.protocol="SSLv3,TLS1.2" -DskipTests
+mvn clean package -Dhttps.protocol="SSLv3,TLS1.2" -DskipTests dockerfile:push
+mvn clean package -Dhttps.protocol="SSLv3,TLS1.2" -DskipTests dockerfile.build.skip
+
+---------------------------- DOCKER ----------------------------
+
+	docker run - This command starts a container based on a local or remote (e.g. DockerHub) container definition. EX: docker run hello-world
+	docker run -d -> runs in detatched mode.
+	docker create - This command creates a new container and prepares it to run the specified command, but doesn’t run it. The ID is printed to STDOUT. This will download and keep it ready.
+	EX: docker create hello-world
+	docker run = docker create + docker start
+	docker start - Starts container. EX: docker start hello-world
+	docker stop - Stops a running container. EX: docker stop hello-world
+	docker rm - Removes a container. Ex: docker rm <ID> OR docker rm -f <NAME>
+	docker ps - This command will list all running containers, showing information on them including their ID, name, base image name, and port forwarding.
+	docker build - This command is used to define a container — it processes the Dockerfile and creates a new container definition. We’ll use this to define our microservice containers.
+	docker pull [image name] - This command pulls the container image from the remote repository and stores the definition locally.
+	docker push - This command publishes a built container definition to a repository, typically DockerHub.
+	docker system prune -a - Completely cleanup docker images/processes and etc.
+	docker-compose up > output - To startup the compose.
+
+- Container-specific commands: These commands take either a container ID or container Name as a parameter:
+
+	docker stats [container name/ID] [container name/ID] - This command will show the current load on each container specified – it will show CPU%, memory usage, and network traffic.
+
+	docker logs [-f] [container name/ID] - This command shows the latest output from the container. The -f option “follows” the output, much like a console “tail-f” command would.
+
+	docker inspect [container name/ID] - This command dumps all of the configuration information on the container in JSON format.
+
+	docker port [container name/ID] - This command shows all of the port forwarding between the container host and the container.
+
+	docker exec [-i] [-t] [container name/ID] - This command executes a command on the target container (-i indicates to run interactively, -t is pseudo-tty). This command is very commonly used to get a container shell:
+	docker exec -it [container name/ID] sh
+
+---------------------------- MINIKUBE ----------------------------
+
+	minikube config set vm-driver hyperv -- Set the VM to Hyperv
+	minikube start -- Start minikube
+
+---------------------------- KUBECTL ----------------------------
+
+	kubectl config use-context minikube - Set kubectl to run on minikube
+
+	On Windows - If minikube need to use docker daemon for the images created following command must be executed.
+	REM @FOR /f "tokens=*" %i IN ('minikube docker-env') DO @%i
+
+	On Linux it should be 
+	eval ${minikube docker-env}
+
+	Another option would be to push images to a registry and have kube to load from registry.
+	docker push command can be used to push to registry OR maven can be used with docker maven plugin from spotiy or fabric.
+
+	To set secret for given docker registry.
+	kubectl create secret docker-registry regcred --docker-server=https://hub.docker.com/r/ --docker-username=UID --docker-password=PWD --docker-email=EMAIL
+
+	To View the secret
+	kubectl get secret regcred --output=yaml
+
+	To run an image with out pulling from registry
+	kubecetl run <name> --image=<IMG NAME>:<TAG> --image-pull-policy=(Never/IfNotPresent)
+
+	kubectl describe pods - will give more information
+	
+	Once deployed inquire 
+	kubectl get all - will get everything
+	kubectl get pods -o wide
+	kubectl get replicationcontroller
+	kubectl get replicaset
+	kubectl get services
+	kubectl get deployments
+	kubectl rollout status DEPL NAME - for status
+	kubectl rollout history DEPL NAME
+	kubectl rollout undo DEPL NAME - For Rollback to previous revision.
+	
+	kubectl apply -f <DEPL FILE NAME> - for sending rollout updates.
+	
+
+	Cleanup
+	kubectl delete pods
+	kubectl delete deployments
+	kubectl delete replicationcontroller myapp-rc
+
+	Complex deployments using YAML files.
+	You can have deployment and service config in one file and use the following command.
+	kubectl create -f <YAM file>
+	kubectl create -f <YAM file> --record=true - Will record the causes which is helpful when looking at history.
+	
+	Replace the current replica sets to different number.
+	 - Either update the replicas field in YML file to the number and run kubectl replace -f FILE
+	 - kubectl scale --replicas=NUMBER -f FILE
+	 
+	secrets
+	kubectl create secret generic db-pass --from-file=<username file path> --from-file=<pwd file path>
+	kubectl create secret generic db-pass --from-literal=password=<PWD>
+	
+---------------------------- MAVEN ----------------------------
+-- DOCKERFILE
+FROM openjdk:8-jdk-alpine
+MAINTAINER org.plingala
+VOLUME /tmp
+# Add Maven dependencies (not shaded into the artifact; Docker-cached)
+#ADD target/lib           /usr/share/app/lib
+# Add the service itself
+ARG JAR_FILE
+ADD target/${JAR_FILE} app.jar
+EXPOSE 9090
+ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom", "-jar", "/app.jar"]
+
+-- POM
+
+	 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>org.plingala</groupId>
+	<artifactId>kube-poc-auth</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.0.5.RELEASE</version>
+		<relativePath /> <!-- lookup parent from repository -->
+	</parent>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+		<java.version>1.8</java.version>
+		<docker.image.prefix>plingala</docker.image.prefix>
+	</properties>
+
+	<repositories>
+		<repository>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<id>central</id>
+			<name>Maven Repository Switchboard</name>
+			<url>https://repo1.maven.org/maven2</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt</artifactId>
+			<version>0.7.0</version>
+		</dependency>
+	</dependencies>
+
+	<!-- <distributionManagement> -->
+	<!-- <repository> -->
+	<!-- <uniqueVersion>false</uniqueVersion> -->
+	<!-- <id>plingala</id> -->
+	<!-- <name>Local Repository</name> -->
+	<!-- <url>file:///temp/repo</url> -->
+	<!-- <layout>default</layout> -->
+	<!-- </repository> -->
+	<!-- </distributionManagement> -->
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>com.spotify</groupId>
+				<artifactId>dockerfile-maven-plugin</artifactId>
+				<version>1.4.4</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>build</goal>
+							<goal>push</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<!-- <contextDirectory>docker</contextDirectory> -->
+					<repository>pawanlk/${project.artifactId}</repository>
+					<useMavenSettingsForAuth>true</useMavenSettingsForAuth>
+					<tag>latest</tag>
+					<!-- <tag>${project.version}</tag> -->
+					<buildArgs>
+						<JAR_FILE>${project.build.finalName}.jar</JAR_FILE>
+					</buildArgs>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
